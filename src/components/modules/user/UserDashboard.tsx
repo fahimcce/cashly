@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -11,6 +11,7 @@ import {
   EyeOff,
   Loader2,
   Wallet2,
+  History,
 } from "lucide-react";
 import {
   Card,
@@ -43,28 +44,55 @@ import type {
   CashOutInput,
 } from "@/lib/validations/transaction";
 import { toast } from "sonner";
+import {
+  BalanceInquiry,
+  cashOut,
+  get100Transaction,
+  sendMoney,
+} from "@/services/TransactionServices";
+import { TTransaction } from "@/types";
 
 export default function UserDashboardPage() {
   const [showBalance, setShowBalance] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [balance, setBalance] = useState<number>(0);
+  const [transactions, setTransactions] = useState<TTransaction[]>([]);
 
-  // Mock data - replace with API data later
-  const balance = 5000;
-  const userPhone = "01868189998"; // This will come from auth context later
+  //balance
+  useEffect(() => {
+    const fetchBalances = async () => {
+      try {
+        const data = await BalanceInquiry();
+        console.log("data:", data);
+        setBalance(data.balance || 0); // Update the state
+      } catch (err) {
+        console.error("Failed to fetch balance");
+      }
+    };
+    fetchBalances();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      setIsLoading(true);
+      const data = await get100Transaction();
+      setTransactions(data);
+      setIsLoading(false);
+    })();
+  }, []);
 
   const sendMoneyForm = useForm<SendMoneyInput>({
     resolver: zodResolver(sendMoneySchema),
     defaultValues: {
-      senderPhone: userPhone,
       receiverPhone: "",
       amount: 0,
+      password: "",
     },
   });
 
   const cashOutForm = useForm<CashOutInput>({
     resolver: zodResolver(cashOutSchema),
     defaultValues: {
-      userPhone: userPhone,
       agentPhone: "",
       amount: 0,
       password: "",
@@ -74,10 +102,11 @@ export default function UserDashboardPage() {
   async function onSendMoney(data: SendMoneyInput) {
     setIsLoading(true);
     try {
-      // This will be replaced with actual API call later
-      console.log("Send Money:", data);
+      await sendMoney(data);
+
       toast.success("successfull send money");
-      sendMoneyForm.reset({ senderPhone: userPhone });
+      sendMoneyForm.reset();
+      window.location.href = "/user";
     } catch (error) {
       toast.error("Failed send money");
     } finally {
@@ -88,10 +117,11 @@ export default function UserDashboardPage() {
   async function onCashOut(data: CashOutInput) {
     setIsLoading(true);
     try {
-      // This will be replaced with actual API call later
+      await cashOut(data);
       console.log("Cash Out:", data);
       toast.success("Cash Out successfull");
-      cashOutForm.reset({ userPhone: userPhone });
+      cashOutForm.reset();
+      window.location.href = "/user";
     } catch (error) {
       toast.error("Failed Cash Out!");
     } finally {
@@ -130,7 +160,7 @@ export default function UserDashboardPage() {
                 }`}
                 onClick={() => setShowBalance(!showBalance)}
               >
-                ৳{balance.toLocaleString()}
+                ৳{balance}
               </div>
               <Button
                 variant="ghost"
@@ -204,6 +234,19 @@ export default function UserDashboardPage() {
                             field.onChange(Number(e.target.value))
                           }
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={sendMoneyForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -321,6 +364,59 @@ export default function UserDashboardPage() {
             </Form>
           </DialogContent>
         </Dialog>
+      </div>
+      {/* Recent Transactions */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-semibold text-gray-700">
+            Recent Transactions
+          </h3>
+          <History className="text-gray-500" size={20} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
+                  Date
+                </th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
+                  Type
+                </th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
+                  Sender
+                </th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
+                  Receiver
+                </th>
+                <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
+                  Amount
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((transaction) => (
+                <tr key={transaction._id} className="border-b border-gray-100">
+                  <td className="py-3 px-4 text-sm text-gray-600">
+                    {new Date(transaction.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-gray-600">
+                    {transaction.transactionType}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-gray-600">
+                    {transaction.senderPhone}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-gray-600">
+                    {transaction.receiverPhone}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-gray-600 text-right">
+                    ৳{transaction.amount.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

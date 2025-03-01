@@ -1,9 +1,6 @@
 import * as z from "zod";
 
 export const sendMoneySchema = z.object({
-  senderPhone: z
-    .string()
-    .regex(/^01[3-9]\d{8}$/, "Please enter a valid Bangladeshi phone number"),
   receiverPhone: z
     .string()
     .regex(/^01[3-9]\d{8}$/, "Please enter a valid Bangladeshi phone number"),
@@ -11,12 +8,10 @@ export const sendMoneySchema = z.object({
     .number()
     .min(50, "Minimum amount is 50 taka")
     .max(100000, "Maximum amount is 100,000 taka"),
+  password: z.string(),
 });
 
 export const cashOutSchema = z.object({
-  userPhone: z
-    .string()
-    .regex(/^01[3-9]\d{8}$/, "Please enter a valid phone number"),
   agentPhone: z
     .string()
     .regex(/^01[3-9]\d{8}$/, "Please enter a valid agent phone number"),
@@ -38,14 +33,7 @@ export const cashInSchema = z.object({
     )
     .min(11, "Phone number must be 11 digits")
     .max(11, "Phone number must be 11 digits"),
-  agentPhone: z
-    .string()
-    .regex(
-      bdPhoneRegex,
-      "Invalid phone number format. Must be a valid Bangladeshi number"
-    )
-    .min(11, "Phone number must be 11 digits")
-    .max(11, "Phone number must be 11 digits"),
+
   amount: z
     .number()
     .min(50, "Minimum amount is ৳50")

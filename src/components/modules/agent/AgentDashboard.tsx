@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Wallet2,
   ArrowUpFromLine,
@@ -39,51 +39,60 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CashInInput, cashInSchema } from "@/lib/validations/transaction";
 import { zodResolver } from "@hookform/resolvers/zod";
-
-interface CashInFormData {
-  userPhone: string;
-  agentPhone: string;
-  amount: number;
-  password: string;
-}
+import {
+  BalanceInquiry,
+  cashIn,
+  get100Transaction,
+} from "@/services/TransactionServices";
+import { TMe, TTransaction } from "@/types";
+import { getMe } from "@/services/AuthServices";
 
 export default function AgentDashboard() {
   const [showBalance, setShowBalance] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [balance, setBalance] = useState<number>(0);
+  const [myData, setMyData] = useState<TMe | null>(null);
 
-  // Mock data - replace with API data later
-  const balance = 50000;
-  const agentPhone = "01868229998";
-  const accountStatus = "Active";
-  const recentTransactions = [
-    {
-      id: 1,
-      type: "Cash In",
-      amount: 5000,
-      userPhone: "01868299998",
-      date: "2024-03-15",
-    },
-    {
-      id: 2,
-      type: "Cash In",
-      amount: 3000,
-      userPhone: "01868299999",
-      date: "2024-03-14",
-    },
-    {
-      id: 3,
-      type: "Cash In",
-      amount: 2000,
-      userPhone: "01868299997",
-      date: "2024-03-13",
-    },
-  ];
+  const [transactions, setTransactions] = useState<TTransaction[]>([]);
+
+  //balance
+  useEffect(() => {
+    const fetchBalances = async () => {
+      try {
+        const data = await BalanceInquiry();
+        console.log("data:", data);
+        setBalance(data.balance || 0); // Update the state
+      } catch (err) {
+        console.error("Failed to fetch balance");
+      }
+    };
+    fetchBalances();
+  }, []);
+
+  //my data
+  useEffect(() => {
+    (async () => {
+      setIsLoading(true);
+      const data = await getMe();
+      setMyData(data);
+      setIsLoading(false);
+    })();
+  }, []);
+
+  //get transactions
+  useEffect(() => {
+    (async () => {
+      setIsLoading(true);
+      const data = await get100Transaction();
+      setTransactions(data);
+      setIsLoading(false);
+    })();
+  }, []);
 
   const cashInForm = useForm<CashInInput>({
     resolver: zodResolver(cashInSchema),
     defaultValues: {
-      userPhone: "01847546789",
-      agentPhone: "",
+      userPhone: "",
       amount: 0,
       password: "",
     },
@@ -92,10 +101,11 @@ export default function AgentDashboard() {
   async function onCashIn(data: CashInInput) {
     setIsLoading(true);
     try {
-      // This will be replaced with actual API call later
-      console.log("Cash Out:", data);
-      toast.success("Cash Out successfull");
+      await cashIn(data);
+
+      toast.success("Cash In successfull");
       cashInForm.reset();
+      window.location.href = "/agent";
     } catch (error) {
       toast.error("Failed Cash Out!");
     } finally {
@@ -135,7 +145,7 @@ export default function AgentDashboard() {
             <p
               className={`text-3xl font-bold ${!showBalance ? "blur-sm" : ""}`}
             >
-              ৳{balance.toLocaleString()}
+              ৳ {balance}
             </p>
           </div>
 
@@ -166,7 +176,7 @@ export default function AgentDashboard() {
                 >
                   <FormField
                     control={cashInForm.control}
-                    name="agentPhone"
+                    name="userPhone"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>User Phone Number</FormLabel>
@@ -230,26 +240,26 @@ export default function AgentDashboard() {
             </DialogContent>
           </Dialog>
 
-          {/* Account Status Card */}
+          {/* Account Approval */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">
-              Account Status
+              Account Approval
             </h3>
             <div className="flex items-center">
-              <div
-                className={`w-3 h-3 rounded-full ${
-                  accountStatus === "Active" ? "bg-green-500" : "bg-red-500"
-                } mr-2`}
-              ></div>
-              <p className="text-xl font-semibold">{accountStatus}</p>
+              {myData?.isApproved === false ? (
+                <p className="text-red-500">Not Approved Yet</p>
+              ) : (
+                <p className="text-green-500">Approved</p>
+              )}
             </div>
           </div>
 
           {/* Income */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">Income</h3>
-            <p className="text-xl font-semibold">5000</p>
+            <p className="text-xl font-semibold">{myData?.income ?? 0}</p>
           </div>
+
           {/* Agent ID Card */}
           {/* <div className="bg-white rounded-xl shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">
@@ -278,7 +288,10 @@ export default function AgentDashboard() {
                     Type
                   </th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
-                    User
+                    Sender
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">
+                    Receiver
                   </th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">
                     Amount
@@ -286,16 +299,22 @@ export default function AgentDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {recentTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="border-b border-gray-100">
+                {transactions.map((transaction) => (
+                  <tr
+                    key={transaction._id}
+                    className="border-b border-gray-100"
+                  >
                     <td className="py-3 px-4 text-sm text-gray-600">
-                      {transaction.date}
+                      {new Date(transaction.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">
-                      {transaction.type}
+                      {transaction.transactionType}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600">
-                      {transaction.userPhone}
+                      {transaction.senderPhone}
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {transaction.receiverPhone}
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-600 text-right">
                       ৳{transaction.amount.toLocaleString()}

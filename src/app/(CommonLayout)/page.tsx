@@ -11,6 +11,7 @@ import {
   CheckCircle,
   Smartphone,
 } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -28,9 +29,11 @@ export default function Home() {
             Your Trusted Mobile Financial Service Partner
           </p>
           <div className="flex justify-center gap-4">
-            <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-              Get Started
-            </button>
+            <Link href="/login">
+              <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                Get Started
+              </button>
+            </Link>
             <button className="px-6 py-3 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium">
               Learn More
             </button>

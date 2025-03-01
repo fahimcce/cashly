@@ -19,11 +19,15 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { loginSchema, type LoginInput } from "@/lib/validations";
 import { toast } from "sonner";
-
+import { login } from "@/services/AuthServices";
+import Cookies from "js-cookie";
+import { verifiyToken } from "@/utils/verifyToken";
+import { useRouter } from "next/navigation";
 // import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -36,10 +40,36 @@ export default function LoginPage() {
   async function onSubmit(data: LoginInput) {
     setIsLoading(true);
     try {
-      // This will be replaced with actual API call later
-      console.log(data);
-      toast.success("login successfully !!");
-    } catch (error) {
+      const response = await login(data);
+
+      toast.success("Logged in successfully!");
+
+      const { accessToken, refreshToken } = response;
+      Cookies.set("accessToken", accessToken, { path: "/", secure: false });
+      Cookies.set("refreshToken", refreshToken, { path: "/", secure: false });
+
+      const user = verifiyToken(accessToken);
+      Cookies.set(
+        "user",
+        JSON.stringify({
+          identifier: user?.identifier,
+          role: user?.role,
+        })
+      );
+
+      if (user.role == "user") {
+        // router.push("/user");
+        window.location.href = "/user";
+      }
+      if (user.role == "agent") {
+        // router.push("/agent");
+        window.location.href = "/agent";
+      }
+      if (user.role == "admin") {
+        // router.push("/agent");
+        window.location.href = "/admin";
+      }
+    } catch {
       toast.error("login failed !!");
     } finally {
       setIsLoading(false);
